@@ -6,6 +6,7 @@
 #include "EditorUtilityLibrary.h"
 #include "EditorAssetLibrary.h"
 
+
 void UQuickAssetActions::TestAction()
 {
 	ScreenPrint(TEXT("TestAction called! Log from screen"), FColor::Emerald);	
@@ -110,5 +111,71 @@ void UQuickAssetActions::FixPrefix()
 	{
 		ScreenAndLogPrint(TEXT("No assets fixed"), FColor::Red);
 		ShowDialog(EAppMsgType::Ok, TEXT("No assets fixed"));
+	}
+}
+
+void UQuickAssetActions::BatchRename(
+	const FString& prefix,
+	const FString& suffix,
+	const FString& prefixSeparator,
+	const FString& suffixSeparator
+)
+{
+	if (prefix.IsEmpty() && suffix.IsEmpty())
+	{
+		return FixPrefix();
+	}
+
+	TArray<UObject*> selectedAssets = UEditorUtilityLibrary::GetSelectedAssets();
+	uint32 counter = 0;
+
+	for (UObject* obj : selectedAssets)
+	{
+		//is a pointer so check if valid
+		if (!obj) {
+			continue;
+		}
+
+		//get prefix from Map and continue if not found
+		FString* epicGamesPrefix = prefixMap.Find(obj->GetClass());
+		if (!epicGamesPrefix || epicGamesPrefix->IsEmpty())
+		{
+			ScreenAndLogPrint(TEXT("Failed to find prefix for class " + obj->GetClass()->GetName()));
+			continue;
+		}
+
+		const FString oldName = obj->GetName();
+		FString newName = oldName;
+		if (!prefix.IsEmpty())
+		{
+			if (oldName.StartsWith(*epicGamesPrefix))
+			{
+				ScreenAndLogPrint(oldName + TEXT(" already has prefix " + *epicGamesPrefix));
+				newName.InsertAt(epicGamesPrefix->Len(), prefixSeparator + prefix);
+			}
+			else
+			{
+				newName.InsertAt(0, *epicGamesPrefix);
+				newName.InsertAt(epicGamesPrefix->Len(), prefixSeparator + prefix);
+			}
+		}
+		else
+		{
+			if (oldName.StartsWith(*epicGamesPrefix))
+			{
+				ScreenAndLogPrint(oldName + TEXT(" already has prefix " + *epicGamesPrefix));
+			}
+			else
+			{
+				newName.InsertAt(0, *epicGamesPrefix);
+			}
+		}
+
+		if (!suffix.IsEmpty())
+		{
+			newName.Append(suffixSeparator + suffix);
+		}
+
+		UEditorUtilityLibrary::RenameAsset(obj, newName);
 	}
 }

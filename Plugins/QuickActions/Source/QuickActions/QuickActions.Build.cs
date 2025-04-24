@@ -29,8 +29,11 @@ public class QuickActions : ModuleRules
 				"Core",
 				"Blutility",
 				"EditorScriptingUtilities",
-				// ... add other public dependencies that you statically link with here ...
-			}
+                "UnrealEd",
+                "AssetTools",
+				"InputCore",
+                "PropertyEditor"
+            }
 			);
 			
 		
@@ -40,7 +43,7 @@ public class QuickActions : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
+				"SlateCore"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

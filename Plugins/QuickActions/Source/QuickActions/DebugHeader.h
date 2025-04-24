@@ -6,7 +6,7 @@
 #include "Framework/Notifications/NotificationManager.h"
 
 // Print a message on-screen
-void ScreenPrint(const FString& msg = TEXT("INSERT LOG"), const FColor& color = FColor::Red, const float duration = 10.f)
+inline void ScreenPrint(const FString& msg = TEXT("INSERT LOG"), const FColor& color = FColor::Red, const float duration = 10.f)
 {
 	if (GEngine)
 	{
@@ -15,27 +15,27 @@ void ScreenPrint(const FString& msg = TEXT("INSERT LOG"), const FColor& color = 
 }
 
 // Print a message on log
-void LogPrint(const FString& msg = TEXT("INSERT_LOG"))
+inline void LogPrint(const FString& msg = TEXT("INSERT_LOG"))
 {
 	UE_LOG(LogQuickActions, Log, TEXT("%s"), *msg);
 }
 
 // Print a message on-screen and log it
-void ScreenAndLogPrint(const FString& msg = TEXT("INSERT_LOG"), const FColor& color = FColor::Red, const float duration = 10.f)
+inline void ScreenAndLogPrint(const FString& msg = TEXT("INSERT_LOG"), const FColor& color = FColor::Red, const float duration = 10.f)
 {
 	ScreenPrint(msg, color, duration);
 	LogPrint(msg);
 }
 
 //Open custom dialog with message and title (error and warning)
-EAppReturnType::Type ShowDialog(EAppMsgType::Type msgType, const FString& msg, const bool bIsWarning = true)
+inline EAppReturnType::Type ShowDialog(EAppMsgType::Type msgType, const FString& msg, const bool bIsWarning = true)
 {
 	FText title = bIsWarning ? FText::FromString(TEXT("Warning")) : FText::FromString(TEXT("Info"));
 	return FMessageDialog::Open(msgType, FText::FromString(msg), &title);
 }
 
 //Open custom notification
-void ShowNotifyInfo(const FString& msg)
+inline void ShowNotifyInfo(const FString& msg)
 {
 	//create notification info
 	FNotificationInfo notificationInfo(FText::FromString(msg));
