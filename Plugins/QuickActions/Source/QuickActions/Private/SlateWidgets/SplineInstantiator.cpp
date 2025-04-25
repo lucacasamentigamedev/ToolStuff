@@ -3,13 +3,33 @@
 #include "PropertyCustomizationHelpers.h"
 #include "Components/SplineComponent.h"
 #include "Widgets/Input/SNumericEntryBox.h"
+#include "Engine/StaticMeshActor.h"
 #include "../DebugHeader.h"
 
 void SSplineInstantiator::Construct(const FArguments& InArgs) {
 	ChildSlot
 		[
 			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()
+
+			// title
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0, 10, 0, 0))
+			[
+				SNew(STextBlock)
+					.Text(FText::FromString("Spline Instantiator"))
+					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 24))
+			]
+
+			//sub-title
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+					.Text(FText::FromString("Luca Casamenti"))
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 12))
+					.ColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f))
+			]
+
+			// actor picker
+			+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 10))
 			[
 				SNew(SExpandableArea).HeaderContent()
 				[
@@ -20,18 +40,21 @@ void SSplineInstantiator::Construct(const FArguments& InArgs) {
 							MakeActorPicker()
 						]
 			]
-			+ SVerticalBox::Slot().AutoHeight()
+
+			// spline picker
+			+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 10))
 			[
 				SNew(SExpandableArea).HeaderContent()
 				[
 					SNew(STextBlock).Text(FText::FromString("Select a spline to use as path"))
 				].BodyContent()
 						[
-							// this is the widget that will be shown
 							MakeSplinePicker()
 						]
 			]
-			+ SVerticalBox::Slot().AutoHeight()
+
+			// number of instances
+			+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(20, 10, 20, 0))
 			[
 				SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot().FillWidth(1.0f)
@@ -52,7 +75,9 @@ void SSplineInstantiator::Construct(const FArguments& InArgs) {
 							})
 					]
 			]
-			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+
+			//buttons
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0, 15))
 			[
 				SNew(SButton)
 					.Text(FText::FromString("Istantiate"))
@@ -123,6 +148,7 @@ FReply SSplineInstantiator::OnSpawnButtonClicked()
 		ShowDialog(EAppMsgType::Ok, TEXT("No world found"));
 		return FReply::Handled();
 	}
+
 	for (int32 i = 0; i < numberOfInstances; i++) {
 		// numberOfIstances-1 because we want to have the last point of the spline
 		float alpha = (float)i / (float)(numberOfInstances-1);
@@ -142,15 +168,49 @@ FReply SSplineInstantiator::OnSpawnButtonClicked()
 		FVector spawnScale = selectedSpline->GetScaleAtDistanceAlongSpline(
 			distanceIntoTheSpline
 		);
-		// spawn actor at location with rotation
-		AActor* spawnedActor = world->SpawnActor<AActor>(
-			selectedActor->GetClass(),
-			spawnLocation,
-			spawnRotation
-		);
-		// set scale
-		if (spawnedActor) {
-			spawnedActor->SetActorScale3D(spawnScale);
+
+		// Prepare spawn parameters stom name
+		FString baseName = selectedActor->GetName(); // Example: BP_MyCube
+		FString customName = FString::Printf(TEXT("%s_%d"), *baseName, i+2); // Example: BP_MyCube_2
+		FActorSpawnParameters spawnParams;
+		spawnParams.Name = FName(*customName);
+
+		AActor* spawnedActor = nullptr;
+
+		// the actor selected is a static mesh
+		AStaticMeshActor* selectedStaticMeshActor = Cast<AStaticMeshActor>(selectedActor.Get());
+		if (selectedStaticMeshActor) {
+			// get mesh to copy
+			UStaticMesh* meshToCopy = selectedStaticMeshActor->GetStaticMeshComponent()->GetStaticMesh();
+			// spawn 
+			AStaticMeshActor* spawnedStaticMeshActor = world->SpawnActor<AStaticMeshActor>(
+				AStaticMeshActor::StaticClass(), spawnLocation, spawnRotation
+			);
+			// set static mesh and scale
+			if (spawnedStaticMeshActor && meshToCopy) {
+				spawnedStaticMeshActor->GetStaticMeshComponent()->SetStaticMesh(meshToCopy);
+				spawnedStaticMeshActor->SetActorScale3D(spawnScale);
+				spawnedActor = spawnedStaticMeshActor;
+			}
+		}
+		// default case ( es: blueprint)
+		else
+		{
+			// spawn actor at location with rotation
+			spawnedActor = world->SpawnActor<AActor>(
+				selectedActor->GetClass(),
+				spawnLocation,
+				spawnRotation
+			);
+			// set scale
+			if (spawnedActor) {
+				spawnedActor->SetActorScale3D(spawnScale);
+			}
+		}
+
+		// Place the spawned actor right after the selected one in the World Outliner
+		if (spawnedActor && selectedActor.IsValid()) {
+			spawnedActor->SetFolderPath(selectedActor->GetFolderPath());
 		}
 	}
 	return FReply::Handled();
