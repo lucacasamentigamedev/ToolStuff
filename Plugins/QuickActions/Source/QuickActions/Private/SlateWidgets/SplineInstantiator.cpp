@@ -4,6 +4,8 @@
 #include "Components/SplineComponent.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Engine/StaticMeshActor.h"
+#include "EngineUtils.h"
+#include "Editor/UnrealEd/Public/Selection.h"
 #include "../DebugHeader.h"
 
 void SSplineInstantiator::Construct(const FArguments& InArgs) {
@@ -23,7 +25,7 @@ void SSplineInstantiator::Construct(const FArguments& InArgs) {
 			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
-					.Text(FText::FromString("Luca Casamenti"))
+					.Text(FText::FromString("Instantiate any number of actor copies (min 2) along the spline curve"))
 					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 12))
 					.ColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f))
 			]
@@ -149,69 +151,55 @@ FReply SSplineInstantiator::OnSpawnButtonClicked()
 		return FReply::Handled();
 	}
 
+	AActor* actorToDuplicate = selectedActor.Get();
+	int32 wrongDuplications = 0;
+
 	for (int32 i = 0; i < numberOfInstances; i++) {
-		// numberOfIstances-1 because we want to have the last point of the spline
-		float alpha = (float)i / (float)(numberOfInstances-1);
+
+		// Calculate transform along the spline
+		float alpha = (float)i / (float)(numberOfInstances - 1);
 		float splineTotalLength = selectedSpline->GetSplineLength();
 		float distanceIntoTheSpline = splineTotalLength * alpha;
-		// get location to spawn
-		FVector spawnLocation = selectedSpline->GetLocationAtDistanceAlongSpline(
-			distanceIntoTheSpline,
-			ESplineCoordinateSpace::World
-		);
-		// get rotation to spawn
-		FRotator spawnRotation = selectedSpline->GetRotationAtDistanceAlongSpline(
-			distanceIntoTheSpline,
-			ESplineCoordinateSpace::World
-		);
-		// get scale to spawn
-		FVector spawnScale = selectedSpline->GetScaleAtDistanceAlongSpline(
-			distanceIntoTheSpline
-		);
 
-		// Prepare spawn parameters stom name
-		FString baseName = selectedActor->GetName(); // Example: BP_MyCube
-		FString customName = FString::Printf(TEXT("%s_%d"), *baseName, i+2); // Example: BP_MyCube_2
-		FActorSpawnParameters spawnParams;
-		spawnParams.Name = FName(*customName);
+		//get actual transform
+		FVector spawnLocation = selectedSpline->GetLocationAtDistanceAlongSpline(distanceIntoTheSpline, ESplineCoordinateSpace::World);
+		FRotator spawnRotation = selectedSpline->GetRotationAtDistanceAlongSpline(distanceIntoTheSpline, ESplineCoordinateSpace::World);
+		FVector spawnScale = selectedSpline->GetScaleAtDistanceAlongSpline(distanceIntoTheSpline);
 
-		AActor* spawnedActor = nullptr;
+		// Custom name for the new actor (starting from _2)
+		FString baseName = selectedActor->GetName();
 
-		// the actor selected is a static mesh
-		AStaticMeshActor* selectedStaticMeshActor = Cast<AStaticMeshActor>(selectedActor.Get());
-		if (selectedStaticMeshActor) {
-			// get mesh to copy
-			UStaticMesh* meshToCopy = selectedStaticMeshActor->GetStaticMeshComponent()->GetStaticMesh();
-			// spawn 
-			AStaticMeshActor* spawnedStaticMeshActor = world->SpawnActor<AStaticMeshActor>(
-				AStaticMeshActor::StaticClass(), spawnLocation, spawnRotation
-			);
-			// set static mesh and scale
-			if (spawnedStaticMeshActor && meshToCopy) {
-				spawnedStaticMeshActor->GetStaticMeshComponent()->SetStaticMesh(meshToCopy);
-				spawnedStaticMeshActor->SetActorScale3D(spawnScale);
-				spawnedActor = spawnedStaticMeshActor;
-			}
+		// Deselect everything
+		GEditor->SelectNone(false, true, false);
+		// Select the actor to duplicate
+		GEditor->SelectActor(selectedActor.Get(), true, true);
+		// Duplicate the actor
+		GEditor->edactDuplicateSelected(world->GetCurrentLevel(), false);
+
+		// Get actual actor spawned
+		AActor* duplicatedActor = GEditor->GetSelectedActors()->GetTop<AActor>();
+
+		if (duplicatedActor) {
+			// set transform
+			duplicatedActor->SetActorLocation(spawnLocation);
+			duplicatedActor->SetActorRotation(spawnRotation);
+			duplicatedActor->SetActorScale3D(spawnScale);
 		}
-		// default case ( es: blueprint)
 		else
 		{
-			// spawn actor at location with rotation
-			spawnedActor = world->SpawnActor<AActor>(
-				selectedActor->GetClass(),
-				spawnLocation,
-				spawnRotation
-			);
-			// set scale
-			if (spawnedActor) {
-				spawnedActor->SetActorScale3D(spawnScale);
-			}
+			// error count
+			wrongDuplications++;
 		}
+	}
 
-		// Place the spawned actor right after the selected one in the World Outliner
-		if (spawnedActor && selectedActor.IsValid()) {
-			spawnedActor->SetFolderPath(selectedActor->GetFolderPath());
-		}
+	if (wrongDuplications > 0) {
+		//some duplicated are corrupted
+		ShowDialog(EAppMsgType::Ok, FString::Printf(TEXT("%d are corrupted or invalid"), wrongDuplications));
+	}
+	else
+	{
+		// all OK
+		ShowNotifyInfo(FString::Printf(TEXT("Actor duplicated successfully")));
 	}
 	return FReply::Handled();
 }
