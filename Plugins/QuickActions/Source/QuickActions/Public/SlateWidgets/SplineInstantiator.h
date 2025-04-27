@@ -28,6 +28,9 @@ private:
 	TSharedRef<SWidget> MakeSplinePicker();
 	TWeakObjectPtr<USplineComponent> selectedSpline;
 	int32 numberOfInstances = 3;
-	// callback when the button is clicked
+	// callback when the button spawn is clicked
 	FReply OnSpawnButtonClicked();
+	// callback when the button cancel is clicked
+	FReply OnCancelLastSpawnClicked();
+	TArray<AActor*> lastSpawnedActors;
 };

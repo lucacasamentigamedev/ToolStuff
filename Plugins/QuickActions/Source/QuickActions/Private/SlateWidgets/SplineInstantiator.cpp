@@ -44,7 +44,7 @@ void SSplineInstantiator::Construct(const FArguments& InArgs) {
 			]
 
 			// spline picker
-			+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 10))
+			+ SVerticalBox::Slot().AutoHeight()
 			[
 				SNew(SExpandableArea).HeaderContent()
 				[
@@ -66,7 +66,7 @@ void SSplineInstantiator::Construct(const FArguments& InArgs) {
 					+ SHorizontalBox::Slot().FillWidth(1.0f)
 					[
 						SNew(SNumericEntryBox<int32>)
-							.Value(3)
+							.Value(2)
 							.MinSliderValue(2)
 							.MaxSliderValue(1000)
 							.Value_Lambda([this]() {
@@ -81,9 +81,20 @@ void SSplineInstantiator::Construct(const FArguments& InArgs) {
 			//buttons
 			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0, 15))
 			[
-				SNew(SButton)
-					.Text(FText::FromString("Istantiate"))
-					.OnClicked(this, &SSplineInstantiator::OnSpawnButtonClicked)
+				SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0, 0, 7.5f, 0)) // Right padding half
+					[
+						SNew(SButton)
+							.Text(FText::FromString("Istantiate"))
+							.OnClicked(this, &SSplineInstantiator::OnSpawnButtonClicked)
+					]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(7.5f, 0, 0, 0)) // Left padding half
+					[
+						SNew(SButton)
+							.Text(FText::FromString("Cancel last spawn"))
+							.OnClicked(this, &SSplineInstantiator::OnCancelLastSpawnClicked)
+					]
+
 			]
 		];
 }
@@ -135,8 +146,13 @@ TSharedRef<SWidget> SSplineInstantiator::MakeSplinePicker()
 FReply SSplineInstantiator::OnSpawnButtonClicked()
 {
 	//right actors
-	if (!selectedActor.IsValid() || !selectedSpline.IsValid()) {
-		ShowDialog(EAppMsgType::Ok, TEXT("No actor or spline selected"));
+	if (!selectedActor.IsValid()) {
+		ShowDialog(EAppMsgType::Ok, TEXT("No actor selected"));
+		return FReply::Handled();
+	}
+	//right actors
+	if (!selectedSpline.IsValid()) {
+		ShowDialog(EAppMsgType::Ok, TEXT("No spline selected"));
 		return FReply::Handled();
 	}
 	//at least 1 copy
@@ -153,6 +169,8 @@ FReply SSplineInstantiator::OnSpawnButtonClicked()
 
 	AActor* actorToDuplicate = selectedActor.Get();
 	int32 wrongDuplications = 0;
+	int32 rightDuplications = 0;
+	lastSpawnedActors.Empty(); // clear the array of last spawned actors
 
 	for (int32 i = 0; i < numberOfInstances; i++) {
 
@@ -180,10 +198,13 @@ FReply SSplineInstantiator::OnSpawnButtonClicked()
 		AActor* duplicatedActor = GEditor->GetSelectedActors()->GetTop<AActor>();
 
 		if (duplicatedActor) {
+			rightDuplications++;
 			// set transform
 			duplicatedActor->SetActorLocation(spawnLocation);
 			duplicatedActor->SetActorRotation(spawnRotation);
 			duplicatedActor->SetActorScale3D(spawnScale);
+			// add to array to eventually cancel
+			lastSpawnedActors.Add(duplicatedActor);
 		}
 		else
 		{
@@ -194,12 +215,37 @@ FReply SSplineInstantiator::OnSpawnButtonClicked()
 
 	if (wrongDuplications > 0) {
 		//some duplicated are corrupted
-		ShowDialog(EAppMsgType::Ok, FString::Printf(TEXT("%d are corrupted or invalid"), wrongDuplications));
+		ShowDialog(EAppMsgType::Ok, FString::Printf(TEXT("%d duplicates are corrupted or invalid"), wrongDuplications));
 	}
 	else
 	{
 		// all OK
-		ShowNotifyInfo(FString::Printf(TEXT("Actor duplicated successfully")));
+		ShowNotifyInfo(FString::Printf(TEXT("Actor duplicated successfully (%d copies)"), rightDuplications));
 	}
 	return FReply::Handled();
+}
+
+FReply SSplineInstantiator::OnCancelLastSpawnClicked()
+{
+	if (lastSpawnedActors.Num() <= 0) {
+		ShowDialog(EAppMsgType::Ok, TEXT("No actors to cancel"));
+		return FReply::Handled();
+	}
+	else
+	{
+		int32 destroyedCount = 0; 
+		for (AActor* Actor : lastSpawnedActors)
+		{
+			if (IsValid(Actor))
+			{
+				Actor->Destroy();
+				destroyedCount++;
+			}
+		}
+
+		// Clear array after destroying
+		lastSpawnedActors.Empty();
+		ShowNotifyInfo(FString::Printf(TEXT("Successfully delete of %d objects"), destroyedCount));
+		return FReply::Handled();
+	}
 }

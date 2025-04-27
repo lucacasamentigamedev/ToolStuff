@@ -70,14 +70,17 @@ TSharedRef<FExtender> FQuickActionsModule::CustomCBExtender(const TArray<FString
 
 void FQuickActionsModule::RegisterSlateTab()
 {
+	// test tab
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
 		FName("TestTab"),
 		FOnSpawnTab::CreateRaw(this, &FQuickActionsModule::OnSpawnTestTab))
 		.SetDisplayName(FText::FromString(TEXT("Nomad tab test")));
+
+	// spline istantiator
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
 		FName("SplineIstantiator"),
 		FOnSpawnTab::CreateLambda([](const FSpawnTabArgs& args) {
-			return SNew(SDockTab).TabRole(ETabRole::NomadTab)
+			return SNew(SDockTab).TabRole(ETabRole::NomadTab).Label(FText::FromString("Spline Instantiator"))
 				[
 					SNew(SSplineInstantiator)
 				];
